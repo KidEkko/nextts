@@ -126,47 +126,86 @@ const DrawingApp: React.FC = () => {
     </>
   ), []);
 
+  // Function to calculate time since drawing was created
+  const getTimeSince = useCallback((date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return `${interval} year${interval === 1 ? '' : 's'} ago`;
+    
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return `${interval} month${interval === 1 ? '' : 's'} ago`;
+    
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return `${interval} day${interval === 1 ? '' : 's'} ago`;
+    
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return `${interval} hour${interval === 1 ? '' : 's'} ago`;
+    
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return `${interval} minute${interval === 1 ? '' : 's'} ago`;
+    
+    return `${seconds} second${seconds === 1 ? '' : 's'} ago`;
+  }, []);
 
   // Component for rendering saved drawings
-  const SavedDrawingsList = useCallback(() => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {savedDrawings.map((drawing) => (
-        <motion.div
-          key={drawing.id}
-          initial={{ scale: 0.95 }}
-          animate={{ scale: 1 }}
-          className="bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 items-center"
-        >
-          <span className="text-base">
-            {drawing.name} 
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleLoadDrawing(drawing)}
-            >
-              Load
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownloadDrawing(drawing)}
-            >
-              <DownloadIcon className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => handleDeleteDrawing(drawing.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  ), [savedDrawings, handleLoadDrawing, handleDownloadDrawing, handleDeleteDrawing]);
+  const SavedDrawingsList = useCallback(() => {
+    // Force rerender every minute to update time displays
+    const [, setForceUpdate] = useState(0);
+    
+    useEffect(() => {
+      const timer = setInterval(() => {
+        setForceUpdate(prev => prev + 1);
+      }, 60000); // Update every minute
+      
+      return () => clearInterval(timer);
+    }, []);
+    
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {savedDrawings.map((drawing) => (
+          <motion.div
+            key={drawing.id}
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            className="bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 items-center"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-base">
+                {drawing.name} 
+              </span>
+              <span className="text-xs text-gray-500">
+                {getTimeSince(drawing.createdAt)}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleLoadDrawing(drawing)}
+              >
+                Load
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDownloadDrawing(drawing)}
+              >
+                <DownloadIcon className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDeleteDrawing(drawing.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    );
+  }, [savedDrawings, handleLoadDrawing, handleDownloadDrawing, handleDeleteDrawing, getTimeSince]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
