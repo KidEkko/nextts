@@ -1,6 +1,6 @@
-"use client"
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+"use client";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { CanvasPath, ReactSketchCanvas, ReactSketchCanvasRef } from "react-sketch-canvas";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,221 +9,317 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DownloadIcon, Eraser, Redo, Save, Trash2, Undo } from "lucide-react";
+import { motion } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 
-// Define zodiac signs type
-type ZodiacSign =
-  | "aries"
-  | "taurus"
-  | "gemini"
-  | "cancer"
-  | "leo"
-  | "virgo"
-  | "libra"
-  | "scorpio"
-  | "sagittarius"
-  | "capricorn"
-  | "aquarius"
-  | "pisces";
-
-// Horoscope data structure
-interface Horoscope {
-  text: string;
+interface Drawing {
+  id: string;
+  paths: CanvasPath[];
+  dataURL: string;
+  name: string;
+  createdAt: Date;
 }
 
-// Sign-specific theme configuration
-interface SignTheme {
-  bgColor: string;
-  accentColor: string;
-  element: string;
-}
+const strokeWidths = [1, 2, 4, 6, 8];
+const eraserWidths = [5, 10, 20, 30];
 
-// Static horoscope data (4 variations per sign)
-const horoscopes: Record<ZodiacSign, Horoscope[]> = {
-  aries: [
-    { text: "Today, your fiery energy ignites new opportunities..." },
-    { text: "Mars guides you toward bold decisions this morning..." },
-    { text: "A challenge arises, but your courage prevails..." },
-    { text: "Your leadership shines in group settings today..." },
-  ],
-  taurus: [
-    { text: "Stability is your strength today, Taurus..." },
-    { text: "A practical approach yields surprising rewards..." },
-    { text: "Venus blesses your financial decisions..." },
-    { text: "Take time to enjoy life's simple pleasures..." },
-  ],
-  // Add other signs similarly...
-  gemini: [
-    { text: "Your curiosity leads to exciting discoveries..." },
-    { text: "Communication flows effortlessly today..." },
-    { text: "A dual nature brings unexpected insights..." },
-    { text: "Mercury sparks your intellectual pursuits..." },
-  ],
-  cancer: [
-    { text: "Emotions run deep but guide you wisely..." },
-    { text: "Home and family bring comfort today..." },
-    { text: "The Moon enhances your intuition..." },
-    { text: "Nurture yourself and others this day..." },
-  ],
-  leo: [
-    { text: "Your radiance attracts positive attention..." },
-    { text: "The Sun fuels your creative ambitions..." },
-    { text: "Confidence opens new doors today..." },
-    { text: "Lead with your heart and prosper..." },
-  ],
-  virgo: [
-    { text: "Details matter and you excel at them..." },
-    { text: "Organization brings peace of mind..." },
-    { text: "Mercury sharpens your analytical skills..." },
-    { text: "Practical solutions solve old problems..." },
-  ],
-  libra: [
-    { text: "Balance restores harmony in your life..." },
-    { text: "Venus enhances your charm today..." },
-    { text: "Relationships flourish with your grace..." },
-    { text: "Justice prevails in your decisions..." },
-  ],
-  scorpio: [
-    { text: "Intensity drives your success today..." },
-    { text: "Pluto reveals hidden truths..." },
-    { text: "Passion fuels your deepest desires..." },
-    { text: "Transformation is within reach..." },
-  ],
-  sagittarius: [
-    { text: "Adventure calls and you must answer..." },
-    { text: "Jupiter expands your horizons today..." },
-    { text: "Optimism lights your path forward..." },
-    { text: "Seek wisdom in unexpected places..." },
-  ],
-  capricorn: [
-    { text: "Discipline yields impressive results..." },
-    { text: "Saturn strengthens your resolve..." },
-    { text: "Ambition climbs to new heights today..." },
-    { text: "Patience brings lasting rewards..." },
-  ],
-  aquarius: [
-    { text: "Innovation sparks brilliant ideas..." },
-    { text: "Uranus inspires unconventional choices..." },
-    { text: "Your vision shapes the future today..." },
-    { text: "Community connections grow stronger..." },
-  ],
-  pisces: [
-    { text: "Dreams reveal profound insights..." },
-    { text: "Neptune enhances your empathy today..." },
-    { text: "Creativity flows like water now..." },
-    { text: "Intuition guides your next steps..." },
-  ],
-};
+// Color options for stroke and background
+const colorOptions = [
+  { value: "#ffffff", label: "White", bg: "white"},
+  { value: "#000000", label: "Black", bg: "black" },
+  { value: "#ff0000", label: "Red", bg: "bg-red-100" },
+  { value: "#00ff00", label: "Green", bg: "bg-green-100" },
+  { value: "#0000ff", label: "Blue", bg: "bg-blue-100" },
+  { value: "#ffff00", label: "Yellow", bg: "bg-yellow-100" },
+];
 
-// Sign themes
-const signThemes: Record<ZodiacSign, SignTheme> = {
-  aries: { bgColor: "bg-red-200", accentColor: "bg-red-500", element: "Fire" },
-  taurus: { bgColor: "bg-green-200", accentColor: "bg-green-500", element: "Earth" },
-  gemini: { bgColor: "bg-yellow-200", accentColor: "bg-yellow-500", element: "Air" },
-  cancer: { bgColor: "bg-blue-200", accentColor: "bg-blue-500", element: "Water" },
-  leo: { bgColor: "bg-orange-200", accentColor: "bg-orange-500", element: "Fire" },
-  virgo: { bgColor: "bg-emerald-200", accentColor: "bg-emerald-500", element: "Earth" },
-  libra: { bgColor: "bg-pink-200", accentColor: "bg-pink-500", element: "Air" },
-  scorpio: { bgColor: "bg-purple-200", accentColor: "bg-purple-500", element: "Water" },
-  sagittarius: { bgColor: "bg-indigo-200", accentColor: "bg-indigo-500", element: "Fire" },
-  capricorn: { bgColor: "bg-gray-200", accentColor: "bg-gray-500", element: "Earth" },
-  aquarius: { bgColor: "bg-cyan-200", accentColor: "bg-cyan-500", element: "Air" },
-  pisces: { bgColor: "bg-teal-200", accentColor: "bg-teal-500", element: "Water" },
-};
-
-const Horoscope: React.FC = () => {
-  const [selectedSign, setSelectedSign] = useState<ZodiacSign | null>(null);
-  const [prevTheme, setPrevTheme] = useState<SignTheme | null>(null);
-  const [theme, setTheme] = useState<SignTheme | null>(null);
-  const [keepPrev, setKeep] = useState<boolean>(false);
-
-const handleSignChange = (value: ZodiacSign) => {
-    if (selectedSign !== null) {
-      setPrevTheme(theme); // Store the previous theme for transition
-    }
-    setKeep(signThemes[value] === prevTheme) // Avoid removing previous theme when going to previous
-    setTheme(signThemes[value]); // Set the new theme
-    setSelectedSign(value); // Change selected sign
-  };
+const DrawingApp: React.FC = () => {
+  // Canvas reference and state management
+  const canvasRef = useRef<ReactSketchCanvasRef>(null);
+  const [strokeWidth, setStrokeWidth] = useState<number>(4);
+  const [eraserWidth, setEraserWidth] = useState<number>(10);
+  const [strokeColor, setStrokeColor] = useState<string>("#000000");
+  const [drawingName, setName] = useState<string>("");
+  const [backgroundColor, setBackgroundColor] = useState<string>("#ffffff");
+  const [isErasing, setIsErasing] = useState<boolean>(false);
+  const [savedDrawings, setSavedDrawings] = useState<Drawing[]>([]);
 
   useEffect(() => {
-    if (selectedSign === null) {
-      setPrevTheme(null); // Reset background to white when no sign is selected
-      setTheme(null); // Clear the theme
+    if (!canvasRef) return;
+    canvasRef.current?.eraseMode(isErasing);
+  },[isErasing])
+
+  // Handler for saving the current drawing
+  const handleSaveDrawing = useCallback(async () => {
+    if (!canvasRef.current) return;
+
+    let name = drawingName;
+    const alreadyThere = savedDrawings.filter((drawing) => drawing.name === drawingName);
+    if (alreadyThere.length > 0) {
+      name += ` (${alreadyThere.length - 1})`
     }
-    console.log(prevTheme, theme)
-  }, [selectedSign]);
+
+    const paths = await canvasRef.current.exportPaths();
+    if (!paths.length) return;
+
+    const imageURL = await canvasRef.current.exportImage("png"); 
+    const newDrawing: Drawing = {
+      id: crypto.randomUUID(),
+      paths,
+      dataURL: imageURL,
+      name: !!name ? name : `Drawing ${savedDrawings.length + 1}`,
+      createdAt: new Date(),
+    };
+
+    setSavedDrawings((prev) => [...prev, newDrawing]);
+    canvasRef.current.clearCanvas();
+  },[canvasRef, savedDrawings, setSavedDrawings, drawingName]);
+
+  const handleDeleteDrawing = useCallback((id: string) => {
+    setSavedDrawings((prev) => prev.filter((d) => d.id !== id));
+  },[setSavedDrawings]);
+
+  // Handler for loading a saved drawing
+  const handleLoadDrawing = useCallback((drawing: Drawing) => {
+    if (!canvasRef.current) return;
+    canvasRef.current.clearCanvas();
+    canvasRef.current.loadPaths(drawing.paths);
+  },[canvasRef]);
+
+  // Handler for downloading a drawing as PNG
+  const handleDownloadDrawing = useCallback(async (drawing: Drawing) => {
+    const link = document.createElement("a");
+    link.download = `${drawing.name}.png`;
+    link.href = drawing.dataURL;
+    link.click();
+  },[]);
+
+
+  const handleUndoClick = useCallback(() => {
+    canvasRef.current?.undo();
+  },[canvasRef])
+
+  const handleRedoClick = useCallback(() => {
+    canvasRef.current?.redo();
+  },[canvasRef])
 
   return (
-    <div className="relative min-h-screen overflow-hidden p-6">
-      {/* Background transition layer */}
-      {prevTheme && !keepPrev && (
-        <motion.div
-          key={prevTheme.bgColor} // Ensure re-animation on change
-          className={`absolute inset-0 ${prevTheme.bgColor}`}
-          initial={{ clipPath: "circle(100% at 50% 50%)", opacity: 1 }}
-          animate={{ clipPath: "circle(0% at 50% 50%)", opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
-        />
-      )}
-      {theme && (
-        <motion.div
-          key={theme.bgColor}
-          className={`absolute inset-0 ${theme.bgColor}`}
-          initial={{ clipPath: "circle(0% at 50% 50%)" }}
-          animate={{ clipPath: "circle(150% at 50% 50%)" }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
-        />
-      )}
+    <div className="min-h-screen bg-gray-100 p-6">
+      {/* Header */}
+      <h1 className="text-2xl font-bold mb-6 text-center">Drawing App</h1>
 
-      <div className="relative z-10 max-w-2xl mx-auto">
-        {/* Header */}
-        <motion.h1
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-3xl font-bold text-center mb-8"
-        >
-          Daily Horoscope
-        </motion.h1>
-
-        {/* Sign Selector */}
-        <div className="mb-8">
-          <Select onValueChange={(value) => handleSignChange(value as ZodiacSign)}>
-            <SelectTrigger className="w-full rounded-md shadow-md border border-black">
-              <SelectValue placeholder="Select your zodiac sign" />
+      {/* Controls */}
+      <div className="flex flex-wrap gap-4 mb-6 justify-center">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Stroke Width</label>
+          <Select
+            value={strokeWidth.toString()}
+            onValueChange={(value) => setStrokeWidth(Number(value))}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.keys(signThemes).map((sign) => (
-                <SelectItem key={sign} value={sign}>
-                  {sign.charAt(0).toUpperCase() + sign.slice(1)}
+              {strokeWidths.map((width) => (
+                <SelectItem key={width} value={width.toString()}>
+                  {width}px
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Horoscope Display */}
-        {selectedSign && theme && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
-            className="bg-white rounded-lg shadow-md p-6 border border-black"
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Eraser Width</label>
+          <Select
+            value={eraserWidth.toString()}
+            onValueChange={(value) => setEraserWidth(Number(value))}
           >
-            <div className="flex items-center gap-4 mb-4">
-              <div className={`${theme.accentColor} w-12 h-12 rounded-full`}></div>
-              <div>
-                <h2 className="text-2xl font-semibold capitalize">{selectedSign}</h2>
-                <p className="text-sm text-gray-600">{theme.element} Sign</p>
-              </div>
-            </div>
-            <p className="text-xl font-semibold text-gray-800">Your daily fortune awaits...</p>
-            <Button onClick={() => setSelectedSign(null)} className={`mt-6 ${theme.accentColor} hover:${theme.accentColor}/90`}>
-              Change Sign
-            </Button>
-          </motion.div>
-        )}
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {eraserWidths.map((width) => (
+                <SelectItem key={width} value={width.toString()}>
+                  {width}px
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Stroke Color</label>
+          <Select
+            value={strokeColor}
+            onValueChange={(value) => setStrokeColor(value)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {colorOptions.map((color) => (
+                <SelectItem className={`cursor-pointer ${color.bg}`} key={color.value} value={color.value}>
+                  {color.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Background Color</label>
+          <Select
+            value={backgroundColor}
+            onValueChange={(value) => setBackgroundColor(value)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {colorOptions.map((color) => (
+                <SelectItem className={`cursor-pointer ${color.bg}`} key={color.value} value={color.value}>
+                  {color.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={isErasing ? "destructive" : "outline"}
+                onClick={() => setIsErasing(!isErasing)}
+                className="self-end"
+              >
+                <Eraser />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Toggle Erasing {isErasing ? "Off" : "On"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={handleUndoClick}
+                className="self-end"
+              >
+                <Undo />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Undo
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={handleRedoClick}
+                className="self-end"
+              >
+                <Redo />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Redo
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
       </div>
+
+      {/* Canvas */}
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        <ReactSketchCanvas
+          ref={canvasRef}
+          strokeWidth={strokeWidth}
+          strokeColor={strokeColor}
+          canvasColor={backgroundColor}
+          eraserWidth={eraserWidth}
+          width="100%"
+          height="400px"
+          className="w-full"
+        />
+      </div>
+
+      <div className="flex flex-row space-x-2 max-w-4xl mx-auto my-4 rounded-lg shadow-md ">
+        <Input className="bg-white" placeholder="Your Drawing's Name" onChange={(e) => setName(e.target.value)} ></Input>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+            <Button onClick={handleSaveDrawing} className="self-end">
+              <Save />
+            </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Save Drawing
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Saved Drawings */}
+      {savedDrawings.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-8 max-w-4xl mx-auto"
+        >
+          <h2 className="text-xl font-semibold mb-4 text-center">Saved Drawings</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedDrawings.map((drawing) => (
+              <motion.div
+                key={drawing.id}
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                className="bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 items-center"
+              >
+                <span className="text-base">
+                  {drawing.name} 
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleLoadDrawing(drawing)}
+                  >
+                    Load
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadDrawing(drawing)}
+                  >
+                    <DownloadIcon className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteDrawing(drawing.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
 
-export default Horoscope;
+export default DrawingApp;
