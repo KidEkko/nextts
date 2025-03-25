@@ -22,8 +22,8 @@ interface Drawing {
   createdAt: Date;
 }
 
-const strokeWidths = [1, 2, 4, 6, 8];
-const eraserWidths = [5, 10, 20, 30];
+const strokeWidths = [1, 2, 4, 6, 8, 10, 12, 16, 20];
+const eraserWidths = [5, 10, 20, 30, 40, 50, 60];
 
 // Color options for stroke and background
 const colorOptions = [
@@ -33,6 +33,12 @@ const colorOptions = [
   { value: "#00ff00", label: "Green", bg: "bg-green-100" },
   { value: "#0000ff", label: "Blue", bg: "bg-blue-100" },
   { value: "#ffff00", label: "Yellow", bg: "bg-yellow-100" },
+  { value: "#ff8800", label: "Orange", bg: "bg-orange-100" },
+  { value: "#8800ff", label: "Purple", bg: "bg-purple-100" },
+  { value: "#ff00ff", label: "Pink", bg: "bg-pink-100" },
+  { value: "#00ffff", label: "Cyan", bg: "bg-cyan-100" },
+  { value: "#888888", label: "Gray", bg: "bg-gray-100" },
+  { value: "#663300", label: "Brown", bg: "bg-amber-900" },
 ];
 
 const DrawingApp: React.FC = () => {
@@ -105,6 +111,63 @@ const DrawingApp: React.FC = () => {
     canvasRef.current?.redo();
   },[canvasRef])
 
+  // Component for rendering color options
+  const ColorOptions = useCallback(() => (
+    <>
+      {colorOptions.map((color) => (
+        <SelectItem 
+          className={`cursor-pointer ${color.bg}`} 
+          key={color.value} 
+          value={color.value}
+        >
+          {color.label}
+        </SelectItem>
+      ))}
+    </>
+  ), []);
+
+
+  // Component for rendering saved drawings
+  const SavedDrawingsList = useCallback(() => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {savedDrawings.map((drawing) => (
+        <motion.div
+          key={drawing.id}
+          initial={{ scale: 0.95 }}
+          animate={{ scale: 1 }}
+          className="bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 items-center"
+        >
+          <span className="text-base">
+            {drawing.name} 
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleLoadDrawing(drawing)}
+            >
+              Load
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadDrawing(drawing)}
+            >
+              <DownloadIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleDeleteDrawing(drawing.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  ), [savedDrawings, handleLoadDrawing, handleDownloadDrawing, handleDeleteDrawing]);
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       {/* Header */}
@@ -160,11 +223,7 @@ const DrawingApp: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {colorOptions.map((color) => (
-                <SelectItem className={`cursor-pointer ${color.bg}`} key={color.value} value={color.value}>
-                  {color.label}
-                </SelectItem>
-              ))}
+              <ColorOptions />
             </SelectContent>
           </Select>
         </div>
@@ -179,11 +238,7 @@ const DrawingApp: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {colorOptions.map((color) => (
-                <SelectItem className={`cursor-pointer ${color.bg}`} key={color.value} value={color.value}>
-                  {color.label}
-                </SelectItem>
-              ))}
+              <ColorOptions />
             </SelectContent>
           </Select>
         </div>
@@ -279,43 +334,7 @@ const DrawingApp: React.FC = () => {
           className="mt-8 max-w-4xl mx-auto"
         >
           <h2 className="text-xl font-semibold mb-4 text-center">Saved Drawings</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedDrawings.map((drawing) => (
-              <motion.div
-                key={drawing.id}
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                className="bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 items-center"
-              >
-                <span className="text-base">
-                  {drawing.name} 
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleLoadDrawing(drawing)}
-                  >
-                    Load
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadDrawing(drawing)}
-                  >
-                    <DownloadIcon className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteDrawing(drawing.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          <SavedDrawingsList />
         </motion.div>
       )}
     </div>
